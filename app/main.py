@@ -1,0 +1,44 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Import the routers
+from app.api import projects, inspections, photos
+
+# Create the FastAPI app
+app = FastAPI(
+    title="Construction Inspection API",
+    description="API for managing construction inspections and photos",
+    version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+os.makedirs("app/static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Include routers
+app.include_router(projects.router, prefix="/api", tags=["projects"])
+app.include_router(inspections.router, prefix="/api", tags=["inspections"])
+app.include_router(photos.router, prefix="/api", tags=["photos"])
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Construction Inspection API"}
+
+# Create necessary directories for uploads
+os.makedirs("app/static/uploads/pdfs", exist_ok=True)
+os.makedirs("app/static/uploads/photos", exist_ok=True)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
