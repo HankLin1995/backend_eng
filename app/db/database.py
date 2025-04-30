@@ -5,6 +5,15 @@ import os
 # Get database URL from environment variable or use default
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
 
+# Ensure data directory exists for SQLite
+if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///") and not SQLALCHEMY_DATABASE_URL.startswith("sqlite:///:memory:"):
+    # Extract the path part after sqlite:///
+    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
+    # Get the directory name
+    db_dir = os.path.dirname(os.path.abspath(db_path))
+    # Create the directory
+    os.makedirs(db_dir, exist_ok=True)
+
 # Create engine with the appropriate connect_args for SQLite
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -27,4 +36,6 @@ def get_db():
 
 def create_tables():
     """Create all tables in the database"""
+    # The directory creation is now handled when the module is loaded
+    # Create all tables
     Base.metadata.create_all(bind=engine)

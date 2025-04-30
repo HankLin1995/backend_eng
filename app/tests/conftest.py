@@ -8,6 +8,8 @@ from app.db.database import get_db
 import os
 import sys
 
+os.makedirs("app/data", exist_ok=True)  # <--- 加在這裡
+
 # 使用記憶體資料庫來加速測試
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 

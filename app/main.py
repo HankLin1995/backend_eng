@@ -5,6 +5,12 @@ import os
 
 # Import the routers
 from app.api import projects, inspections, photos
+
+# Create necessary directories first
+os.makedirs("app/data", exist_ok=True)
+os.makedirs("app/static/uploads/pdfs", exist_ok=True)
+os.makedirs("app/static/uploads/photos", exist_ok=True)
+
 # Import database components for initialization
 from app.db.database import create_tables
 
@@ -40,12 +46,7 @@ app.include_router(photos.router, prefix="/api", tags=["photos"])
 async def root():
     return {"message": "Welcome to Construction Inspection API"}
 
-# Create necessary directories for uploads
-os.makedirs("app/static/uploads/pdfs", exist_ok=True)
-os.makedirs("app/static/uploads/photos", exist_ok=True)
-
-# Create necessary directories for database
-os.makedirs("app/data", exist_ok=True)
+# Note: All necessary directories are now created before database initialization
 
 # if __name__ == "__main__":
 #     import uvicorn
