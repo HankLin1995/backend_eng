@@ -5,6 +5,11 @@ import os
 
 # Import the routers
 from app.api import projects, inspections, photos
+# Import database components for initialization
+from app.db.database import create_tables
+
+# Initialize database tables
+create_tables()
 
 # Create the FastAPI app
 app = FastAPI(
@@ -24,7 +29,7 @@ app.add_middleware(
 
 # Mount static files
 os.makedirs("app/static", exist_ok=True)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/app/static", StaticFiles(directory="app/static"), name="static")
 
 # Include routers
 app.include_router(projects.router, prefix="/api", tags=["projects"])
@@ -39,6 +44,9 @@ async def root():
 os.makedirs("app/static/uploads/pdfs", exist_ok=True)
 os.makedirs("app/static/uploads/photos", exist_ok=True)
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+# Create necessary directories for database
+os.makedirs("app/data", exist_ok=True)
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
