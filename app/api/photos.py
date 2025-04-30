@@ -54,10 +54,19 @@ def read_photo(photo_id: int, db: Session = Depends(get_db)):
 @router.put("/photos/{photo_id}", response_model=schemas.Photo)
 def update_photo(
     photo_id: int, 
-    photo_update: schemas.PhotoCreate, 
+    photo_update: schemas.PhotoUpdate, 
     db: Session = Depends(get_db)
 ):
     """Update a photo's metadata"""
+    return crud.update_photo(db=db, photo_id=photo_id, photo_update=photo_update)
+
+@router.patch("/photos/{photo_id}", response_model=schemas.Photo)
+def partial_update_photo(
+    photo_id: int,
+    photo_update: schemas.PhotoUpdate,
+    db: Session = Depends(get_db)
+):
+    """Partially update a photo's metadata (date, caption, etc.)"""
     return crud.update_photo(db=db, photo_id=photo_id, photo_update=photo_update)
 
 @router.delete("/photos/{photo_id}", response_model=schemas.Photo)

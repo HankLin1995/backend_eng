@@ -332,6 +332,68 @@ def test_delete_photo(client):
     response = client.get(f"/api/photos/{photo_id}")
     assert response.status_code == 404
 
+def test_patch_photo_caption_and_date(client):
+    """Test partial update (PATCH) of photo caption and date only"""
+    # 先建立一個 project 與 inspection
+    project_data = {
+        "name": "Patch Photo Project",
+        "location": "Taipei",
+        "contractor": "Test",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30))
+    }
+    project_resp = client.post("/api/projects/", json=project_data)
+    assert project_resp.status_code == 201
+    project_id = project_resp.json()["id"]
+    
+    inspection_data = {
+        "project_id": project_id,
+        "subproject_name": "Sub Project",
+        "inspection_form_name": "Form Name",
+        "inspection_date": str(date.today()),
+        "location": "Location",
+        "timing": "morning",
+        "result": "合格",
+        "remark": "Test remark"
+    }
+    inspection_resp = client.post("/api/inspections/", json=inspection_data)
+    assert inspection_resp.status_code == 201
+    inspection_id = inspection_resp.json()["id"]
+    
+    # 建立照片（需使用 multipart/form-data 上傳 file）
+    import io
+    photo_bytes = io.BytesIO(b"fake image content")
+    photo_data = {
+        "inspection_id": str(inspection_id),
+        "capture_date": str(date.today()),
+        "caption": "Original Caption"
+    }
+    files = {
+        "file": ("photo.jpg", photo_bytes, "image/jpeg")
+    }
+    photo_resp = client.post("/api/photos/", data=photo_data, files=files)
+    assert photo_resp.status_code == 201
+    photo_id = photo_resp.json()["id"]
+    
+    # 確認照片已建立
+    get_resp = client.get(f"/api/photos/{photo_id}")
+    assert get_resp.status_code == 200
+    
+    # PATCH 只更新日期和描述
+    new_date = str(date.today() + timedelta(days=1))
+    patch_data = {
+        "capture_date": new_date,
+        "caption": "Updated Caption"
+    }
+    patch_resp = client.patch(f"/api/photos/{photo_id}", json=patch_data)
+    assert patch_resp.status_code == 200
+    patched = patch_resp.json()
+    
+    # 驗證只有指定欄位被更新
+    assert patched["caption"] == "Updated Caption"
+    assert patched["capture_date"] == new_date
+    assert patched["inspection_id"] == inspection_id
+
 # Add tests for error handling
 def test_get_nonexistent_project(client):
     """Test getting a non-existent project"""

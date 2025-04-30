@@ -90,9 +90,10 @@ def create_photo(db: Session, photo: schemas.PhotoCreate):
     db.refresh(db_photo)
     return db_photo
 
-def update_photo(db: Session, photo_id: int, photo_update: schemas.PhotoCreate):
+def update_photo(db: Session, photo_id: int, photo_update: schemas.PhotoUpdate):
     db_photo = get_photo(db, photo_id)
-    for key, value in photo_update.model_dump().items():
+    update_data = photo_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(db_photo, key, value)
     db.commit()
     db.refresh(db_photo)

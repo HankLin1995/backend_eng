@@ -55,6 +55,10 @@ class PhotoBase(BaseModel):
 class PhotoCreate(PhotoBase):
     pass
 
+class PhotoUpdate(BaseModel):
+    capture_date: Optional[date] = None
+    caption: Optional[str] = None
+
 class Photo(PhotoBase):
     id: int
     
