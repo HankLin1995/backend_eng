@@ -9,7 +9,7 @@ services:
     volumes:
       # - db_data:/app/data
       - ./data:/app/data
-      - ./static:/app/static
+      - ./static:/app/app/static
     environment:
       - DATABASE_URL=sqlite:///./data/app.db
       - PYTHONPATH=/app
