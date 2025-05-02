@@ -138,7 +138,7 @@ def test_read_inspections(client):
     data = response.json()
     assert len(data) >= 1
     assert any(inspection["subproject_name"] == "Test Subproject" for inspection in data)
-    
+
     # Get inspections filtered by project_id
     response = client.get(f"/api/inspections/?project_id={project_id}")
     assert response.status_code == 200
@@ -187,6 +187,59 @@ def test_update_inspection(client):
     assert data["result"] == "不合格"
     assert data["remark"] == "Updated remark"
     assert data["pdf_path"] == "/path/to/pdf"
+
+def test_update_inspection_preserve_pdf_path(client):
+    """Test that pdf_path is preserved when not included in the update request"""
+    # Create a project first
+    project_data = {
+        "name": "Test Project",
+        "location": "Test Location",
+        "contractor": "Test Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30))
+    }
+    create_response = client.post("/api/projects/", json=project_data)
+    project_id = create_response.json()["id"]
+    
+    # Create an inspection with a pdf_path
+    inspection_data = {
+        "project_id": project_id,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Test Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "檢驗停留點",
+        "result": "合格",
+        "remark": "Test remark"
+    }
+    create_response = client.post("/api/inspections/", json=inspection_data)
+    inspection_id = create_response.json()["id"]
+    
+    # Set a pdf_path for the inspection
+    update_with_pdf = {
+        "result": "合格",
+        "remark": "With PDF",
+        "pdf_path": "/path/to/original/pdf"
+    }
+    response = client.put(f"/api/inspections/{inspection_id}", json=update_with_pdf)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["pdf_path"] == "/path/to/original/pdf"
+    
+    # Now update without including pdf_path
+    update_without_pdf = {
+        "result": "不合格",
+        "remark": "Updated without PDF path"
+    }
+    
+    response = client.put(f"/api/inspections/{inspection_id}", json=update_without_pdf)
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Verify that the pdf_path is still preserved
+    assert data["result"] == "不合格"
+    assert data["remark"] == "Updated without PDF path"
+    assert data["pdf_path"] == "/path/to/original/pdf", "pdf_path should not be changed when not included in update"
 
 def test_delete_inspection(client):
     """Test deleting an inspection via API"""

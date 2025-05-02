@@ -58,7 +58,8 @@ def create_inspection(db: Session, inspection: schemas.InspectionCreate):
 
 def update_inspection(db: Session, inspection_id: int, inspection_update: schemas.InspectionUpdate):
     db_inspection = get_inspection(db, inspection_id)
-    for key, value in inspection_update.model_dump().items():
+    update_data = inspection_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
         setattr(db_inspection, key, value)
     db.commit()
     db.refresh(db_inspection)

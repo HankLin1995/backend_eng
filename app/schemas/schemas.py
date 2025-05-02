@@ -36,6 +36,8 @@ class InspectionUpdate(BaseModel):
     result: str
     remark: Optional[str] = None
     pdf_path: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class Inspection(InspectionBase):
     id: int
