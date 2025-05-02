@@ -41,7 +41,7 @@ class ConstructionInspection(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     project = relationship("Project", back_populates="inspections")
-    photos = relationship("InspectionPhoto", back_populates="inspection")
+    photos = relationship("InspectionPhoto", back_populates="inspection", cascade="all, delete-orphan")
 
 class InspectionPhoto(Base):
     __tablename__ = "inspection_photos"

@@ -188,6 +188,133 @@ def test_update_inspection(client):
     assert data["remark"] == "Updated remark"
     assert data["pdf_path"] == "/path/to/pdf"
 
+def test_delete_inspection(client):
+    """Test deleting an inspection via API"""
+    # Create a project first
+    project_data = {
+        "name": "Test Project",
+        "location": "Test Location",
+        "contractor": "Test Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30))
+    }
+    create_response = client.post("/api/projects/", json=project_data)
+    project_id = create_response.json()["id"]
+    
+    # Create an inspection
+    inspection_data = {
+        "project_id": project_id,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Test Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "檢驗停留點",
+        "result": "合格",
+        "remark": "Test remark"
+    }
+    create_response = client.post("/api/inspections/", json=inspection_data)
+    inspection_id = create_response.json()["id"]
+    
+    # Delete the inspection
+    response = client.delete(f"/api/inspections/{inspection_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == inspection_id
+    
+    # Verify the inspection was deleted
+    response = client.get(f"/api/inspections/{inspection_id}")
+    assert response.status_code == 404
+
+def test_delete_spot_check(client):
+    """Test deleting a spot check inspection via API"""
+    # Create a project first
+    project_data = {
+        "name": "Test Project",
+        "location": "Test Location",
+        "contractor": "Test Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30))
+    }
+    create_response = client.post("/api/projects/", json=project_data)
+    project_id = create_response.json()["id"]
+    
+    # Create a spot check inspection
+    spot_check_data = {
+        "project_id": project_id,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Spot Check Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "隨機抽查",  # This is a spot check
+        "result": "合格",
+        "remark": "Spot check remark"
+    }
+    
+    create_response = client.post("/api/inspections/", json=spot_check_data)
+    assert create_response.status_code == 201
+    spot_check_id = create_response.json()["id"]
+    
+    # Verify the spot check was created
+    response = client.get(f"/api/inspections/{spot_check_id}")
+    assert response.status_code == 200
+    assert response.json()["timing"] == "隨機抽查"
+    
+    # Add photos to the spot check
+    from app.models.models import InspectionPhoto
+    from app.db.database import get_db
+    
+    # Create multiple photos for the spot check
+    photo1 = InspectionPhoto(
+        inspection_id=spot_check_id,
+        photo_path="/mock/path/photo1.jpg",
+        capture_date=date.today(),
+        caption="Spot Check Photo 1"
+    )
+    
+    photo2 = InspectionPhoto(
+        inspection_id=spot_check_id,
+        photo_path="/mock/path/photo2.jpg",
+        capture_date=date.today(),
+        caption="Spot Check Photo 2"
+    )
+    
+    # Add photos to the database
+    db = next(client.app.dependency_overrides[get_db]())
+    db.add(photo1)
+    db.add(photo2)
+    db.commit()
+    photo1_id = photo1.id
+    photo2_id = photo2.id
+    
+    # Verify photos were added
+    response = client.get(f"/api/photos/?inspection_id={spot_check_id}")
+    assert response.status_code == 200
+    photos_data = response.json()
+    assert len(photos_data) == 2
+    
+    # Delete the spot check
+    delete_response = client.delete(f"/api/inspections/{spot_check_id}")
+    assert delete_response.status_code == 200
+    deleted_data = delete_response.json()
+    assert deleted_data["id"] == spot_check_id
+    assert deleted_data["timing"] == "隨機抽查"
+    
+    # Verify the spot check was deleted
+    response = client.get(f"/api/inspections/{spot_check_id}")
+    assert response.status_code == 404
+    
+    # Verify that all associated photos were also deleted
+    response = client.get(f"/api/photos/{photo1_id}")
+    assert response.status_code == 404
+    
+    response = client.get(f"/api/photos/{photo2_id}")
+    assert response.status_code == 404
+    
+    # Verify no photos are returned when querying by the deleted inspection_id
+    response = client.get(f"/api/photos/?inspection_id={spot_check_id}")
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
 # Photo API tests
 def test_read_photos(client):
     """Test reading all photos via API"""
