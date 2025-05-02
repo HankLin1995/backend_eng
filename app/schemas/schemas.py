@@ -58,8 +58,11 @@ class PhotoCreate(PhotoBase):
     pass
 
 class PhotoUpdate(BaseModel):
+    photo_path: Optional[str] = None
     capture_date: Optional[date] = None
     caption: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 class Photo(PhotoBase):
     id: int

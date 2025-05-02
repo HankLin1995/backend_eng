@@ -45,7 +45,6 @@ app.include_router(photos.router, prefix="/api", tags=["photos"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Construction Inspection API"}
-
 # Note: All necessary directories are now created before database initialization
 
 # if __name__ == "__main__":
