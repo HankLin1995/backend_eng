@@ -7,6 +7,10 @@ from app.main import app
 from app.db.database import get_db
 import os
 import sys
+import shutil
+from datetime import date, timedelta
+from app.models.models import Project, ConstructionInspection, InspectionPhoto
+from app.schemas import schemas
 
 os.makedirs("app/data", exist_ok=True)  # <--- 加在這裡
 
@@ -59,3 +63,167 @@ def client(db):
     
     # 重置依賴項覆蓋
     app.dependency_overrides = {}
+
+# 設置測試用的上傳目錄
+TEST_PDF_DIR = "app/static/test_uploads/pdfs"
+TEST_PHOTO_DIR = "app/static/test_uploads/photos"
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_test_dirs():
+    """設置測試目錄並在測試結束後清理"""
+    # 創建測試目錄
+    os.makedirs(TEST_PDF_DIR, exist_ok=True)
+    os.makedirs(TEST_PHOTO_DIR, exist_ok=True)
+    
+    yield
+    
+    # 清理測試目錄
+    if os.path.exists(TEST_PDF_DIR):
+        shutil.rmtree(TEST_PDF_DIR)
+    if os.path.exists(TEST_PHOTO_DIR):
+        shutil.rmtree(TEST_PHOTO_DIR)
+
+@pytest.fixture
+def mock_pdf_path():
+    """創建一個測試用的 PDF 檔案並返回路徑"""
+    pdf_path = os.path.join(TEST_PDF_DIR, "test_inspection.pdf")
+    
+    # 創建一個空的 PDF 檔案
+    with open(pdf_path, "wb") as f:
+        f.write(b"Test PDF content")
+    
+    yield pdf_path
+    
+    # 測試後清理（如果檔案還存在）
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
+
+@pytest.fixture
+def mock_photo_path():
+    """創建一個測試用的照片檔案並返回路徑"""
+    photo_path = os.path.join(TEST_PHOTO_DIR, "test_photo.jpg")
+    
+    # 創建一個空的照片檔案
+    with open(photo_path, "wb") as f:
+        f.write(b"Test photo content")
+    
+    yield photo_path
+    
+    # 測試後清理（如果檔案還存在）
+    if os.path.exists(photo_path):
+        os.remove(photo_path)
+
+@pytest.fixture
+def test_project_data():
+    """返回用於創建測試專案的資料"""
+    return {
+        "name": "Test Project",
+        "location": "Test Location",
+        "contractor": "Test Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30))
+    }
+
+@pytest.fixture
+def test_inspection_data(test_project_id):
+    """返回用於創建測試抽查的資料"""
+    return {
+        "project_id": test_project_id,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Test Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "檢驗停留點",
+        "result": "合格",
+        "remark": "Test remark"
+    }
+
+@pytest.fixture
+def test_project(db):
+    """創建一個測試用的專案"""
+    project = Project(
+        name="Test Project",
+        location="Test Location",
+        contractor="Test Contractor",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=30)
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    yield project
+    # 清理由 db fixture 的 transaction rollback 處理
+
+@pytest.fixture
+def test_project_id(test_project):
+    """返回測試專案的 ID"""
+    return test_project.id
+
+@pytest.fixture
+def test_inspection(db, test_project_id, mock_pdf_path=None):
+    """創建一個測試用的抽查"""
+    inspection = ConstructionInspection(
+        project_id=test_project_id,
+        subproject_name="Test Subproject",
+        inspection_form_name="Test Form",
+        inspection_date=date.today(),
+        location="Test Location",
+        timing="檢驗停留點",
+        result="合格",
+        remark="Test remark",
+        pdf_path=mock_pdf_path
+    )
+    db.add(inspection)
+    db.commit()
+    db.refresh(inspection)
+    yield inspection
+    # 清理由 db fixture 的 transaction rollback 處理
+
+@pytest.fixture
+def test_inspection_id(test_inspection):
+    """返回測試抽查的 ID"""
+    return test_inspection.id
+
+@pytest.fixture
+def test_photo(db, test_inspection_id, mock_photo_path):
+    """創建一個測試用的照片"""
+    photo = InspectionPhoto(
+        inspection_id=test_inspection_id,
+        photo_path=mock_photo_path,
+        capture_date=date.today(),
+        caption="Test Caption"
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    yield photo
+    # 清理由 db fixture 的 transaction rollback 處理
+
+@pytest.fixture
+def test_photo_id(test_photo):
+    """返回測試照片的 ID"""
+    return test_photo.id
+
+@pytest.fixture
+def create_project_via_api(client, test_project_data):
+    """通過 API 創建專案並返回專案 ID"""
+    response = client.post("/api/projects/", json=test_project_data)
+    assert response.status_code == 201
+    return response.json()["id"]
+
+@pytest.fixture
+def create_inspection_via_api(client, create_project_via_api):
+    """通過 API 創建抽查並返回抽查 ID"""
+    inspection_data = {
+        "project_id": create_project_via_api,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Test Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "檢驗停留點",
+        "result": "合格",
+        "remark": "Test remark"
+    }
+    response = client.post("/api/inspections/", json=inspection_data)
+    assert response.status_code == 201
+    return response.json()["id"]

@@ -130,21 +130,11 @@ def test_delete_project(db):
     assert excinfo.value.status_code == 404
 
 # Inspection CRUD tests
-def test_create_inspection(db):
+def test_create_inspection(db, test_project_id):
     """Test creating an inspection"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    project = create_project(db, project_data)
-    
     # Create inspection
     inspection_data = schemas.InspectionCreate(
-        project_id=project.id,
+        project_id=test_project_id,
         subproject_name="Test Subproject",
         inspection_form_name="Test Form",
         inspection_date=date.today(),
@@ -156,26 +146,16 @@ def test_create_inspection(db):
     
     inspection = create_inspection(db, inspection_data)
     assert inspection.id is not None
-    assert inspection.project_id == project.id
+    assert inspection.project_id == test_project_id
     assert inspection.subproject_name == "Test Subproject"
     assert inspection.timing == "檢驗停留點"
     assert inspection.result == "合格"
 
-def test_get_inspection(db):
+def test_get_inspection(db, test_project_id):
     """Test getting an inspection by ID"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    project = create_project(db, project_data)
-    
     # Create inspection
     inspection_data = schemas.InspectionCreate(
-        project_id=project.id,
+        project_id=test_project_id,
         subproject_name="Test Subproject",
         inspection_form_name="Test Form",
         inspection_date=date.today(),
@@ -191,21 +171,11 @@ def test_get_inspection(db):
     assert inspection.id == created_inspection.id
     assert inspection.subproject_name == "Test Subproject"
 
-def test_update_inspection(db):
+def test_update_inspection(db, test_project_id):
     """Test updating an inspection"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    project = create_project(db, project_data)
-    
     # Create inspection
     inspection_data = schemas.InspectionCreate(
-        project_id=project.id,
+        project_id=test_project_id,
         subproject_name="Test Subproject",
         inspection_form_name="Test Form",
         inspection_date=date.today(),
@@ -217,34 +187,23 @@ def test_update_inspection(db):
     created_inspection = create_inspection(db, inspection_data)
     
     # Update the inspection
-    update_data = schemas.InspectionUpdate(
+    updated_data = schemas.InspectionUpdate(
         result="不合格",
         remark="Updated remark",
         pdf_path="/path/to/pdf"
     )
     
-    updated_inspection = update_inspection(db, created_inspection.id, update_data)
+    updated_inspection = update_inspection(db, created_inspection.id, updated_data)
     assert updated_inspection.id == created_inspection.id
     assert updated_inspection.result == "不合格"
     assert updated_inspection.remark == "Updated remark"
     assert updated_inspection.pdf_path == "/path/to/pdf"
 
-# Photo CRUD tests
-def test_create_photo(db):
-    """Test creating a photo"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    project = create_project(db, project_data)
-    
+def test_delete_inspection(db, test_project_id):
+    """Test deleting an inspection"""
     # Create inspection
     inspection_data = schemas.InspectionCreate(
-        project_id=project.id,
+        project_id=test_project_id,
         subproject_name="Test Subproject",
         inspection_form_name="Test Form",
         inspection_date=date.today(),
@@ -253,11 +212,23 @@ def test_create_photo(db):
         result="合格",
         remark="Test remark"
     )
-    inspection = create_inspection(db, inspection_data)
+    created_inspection = create_inspection(db, inspection_data)
     
+    # Delete the inspection
+    deleted_inspection = delete_inspection(db, created_inspection.id)
+    assert deleted_inspection.id == created_inspection.id
+    
+    # Verify it's deleted
+    with pytest.raises(HTTPException) as excinfo:
+        get_inspection(db, created_inspection.id)
+    assert excinfo.value.status_code == 404
+
+# Photo CRUD tests
+def test_create_photo(db, test_inspection_id):
+    """Test creating a photo"""
     # Create photo
     photo_data = schemas.PhotoCreate(
-        inspection_id=inspection.id,
+        inspection_id=test_inspection_id,
         photo_path="/path/to/photo.jpg",
         capture_date=date.today(),
         caption="Test Caption"
@@ -265,45 +236,21 @@ def test_create_photo(db):
     
     photo = create_photo(db, photo_data)
     assert photo.id is not None
-    assert photo.inspection_id == inspection.id
+    assert photo.inspection_id == test_inspection_id
     assert photo.photo_path == "/path/to/photo.jpg"
     assert photo.caption == "Test Caption"
 
-def test_get_photos_by_inspection(db):
+def test_get_photos_by_inspection(db, test_inspection_id):
     """Test getting photos by inspection ID"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    project = create_project(db, project_data)
-    
-    # Create inspection
-    inspection_data = schemas.InspectionCreate(
-        project_id=project.id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark"
-    )
-    inspection = create_inspection(db, inspection_data)
-    
-    # Create photos
+    # Create some photos
     photo_data1 = schemas.PhotoCreate(
-        inspection_id=inspection.id,
+        inspection_id=test_inspection_id,
         photo_path="/path/to/photo1.jpg",
         capture_date=date.today(),
         caption="Test Caption 1"
     )
-    
     photo_data2 = schemas.PhotoCreate(
-        inspection_id=inspection.id,
+        inspection_id=test_inspection_id,
         photo_path="/path/to/photo2.jpg",
         capture_date=date.today(),
         caption="Test Caption 2"
@@ -313,7 +260,7 @@ def test_get_photos_by_inspection(db):
     create_photo(db, photo_data2)
     
     # Get photos by inspection ID
-    photos = get_photos(db, inspection_id=inspection.id)
+    photos = get_photos(db, inspection_id=test_inspection_id)
     assert len(photos) == 2
     photo_paths = [p.photo_path for p in photos]
     assert "/path/to/photo1.jpg" in photo_paths

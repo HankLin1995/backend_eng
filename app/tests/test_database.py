@@ -1,12 +1,7 @@
 import pytest
-from sqlalchemy import text, create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 from app.db.database import Base
-
-# 測試用 in-memory SQLite engine
-TEST_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from app.tests.conftest import engine, TestingSessionLocal
 
 def get_test_db():
     db = TestingSessionLocal()

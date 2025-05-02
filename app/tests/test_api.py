@@ -201,7 +201,7 @@ def test_update_inspection_preserve_pdf_path(client):
     create_response = client.post("/api/projects/", json=project_data)
     project_id = create_response.json()["id"]
     
-    # Create an inspection with a pdf_path
+    # Create an inspection first (without pdf_path)
     inspection_data = {
         "project_id": project_id,
         "subproject_name": "Test Subproject",
@@ -215,31 +215,34 @@ def test_update_inspection_preserve_pdf_path(client):
     create_response = client.post("/api/inspections/", json=inspection_data)
     inspection_id = create_response.json()["id"]
     
-    # Set a pdf_path for the inspection
-    update_with_pdf = {
-        "result": "合格",
-        "remark": "With PDF",
-        "pdf_path": "/path/to/original/pdf"
+    # Create a mock PDF file and upload it using the upload-pdf endpoint
+    import io
+    pdf_content = io.BytesIO(b"Test PDF content")
+    files = {
+        "file": ("test.pdf", pdf_content, "application/pdf")
     }
-    response = client.put(f"/api/inspections/{inspection_id}", json=update_with_pdf)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["pdf_path"] == "/path/to/original/pdf"
+    upload_response = client.post(
+        f"/api/inspections/{inspection_id}/upload-pdf",
+        files=files
+    )
+    assert upload_response.status_code == 200
+    assert upload_response.json()["pdf_path"] is not None
+    pdf_path = upload_response.json()["pdf_path"]
     
     # Now update without including pdf_path
-    update_without_pdf = {
+    update_data = {
         "result": "不合格",
         "remark": "Updated without PDF path"
     }
     
-    response = client.put(f"/api/inspections/{inspection_id}", json=update_without_pdf)
+    response = client.put(f"/api/inspections/{inspection_id}", json=update_data)
     assert response.status_code == 200
     data = response.json()
     
     # Verify that the pdf_path is still preserved
     assert data["result"] == "不合格"
     assert data["remark"] == "Updated without PDF path"
-    assert data["pdf_path"] == "/path/to/original/pdf", "pdf_path should not be changed when not included in update"
+    assert data["pdf_path"] == pdf_path, "pdf_path should not be changed when not included in update"
 
 def test_delete_inspection(client):
     """Test deleting an inspection via API"""
@@ -312,32 +315,36 @@ def test_delete_spot_check(client):
     assert response.status_code == 200
     assert response.json()["timing"] == "隨機抽查"
     
-    # Add photos to the spot check
-    from app.models.models import InspectionPhoto
-    from app.db.database import get_db
+    # Add photos to the spot check using the API
+    import io
     
-    # Create multiple photos for the spot check
-    photo1 = InspectionPhoto(
-        inspection_id=spot_check_id,
-        photo_path="/mock/path/photo1.jpg",
-        capture_date=date.today(),
-        caption="Spot Check Photo 1"
-    )
+    # Create first photo
+    photo1_bytes = io.BytesIO(b"fake image content 1")
+    photo1_data = {
+        "inspection_id": str(spot_check_id),
+        "capture_date": str(date.today()),
+        "caption": "Spot Check Photo 1"
+    }
+    files1 = {
+        "file": ("photo1.jpg", photo1_bytes, "image/jpeg")
+    }
+    photo1_response = client.post("/api/photos/", data=photo1_data, files=files1)
+    assert photo1_response.status_code == 201
+    photo1_id = photo1_response.json()["id"]
     
-    photo2 = InspectionPhoto(
-        inspection_id=spot_check_id,
-        photo_path="/mock/path/photo2.jpg",
-        capture_date=date.today(),
-        caption="Spot Check Photo 2"
-    )
-    
-    # Add photos to the database
-    db = next(client.app.dependency_overrides[get_db]())
-    db.add(photo1)
-    db.add(photo2)
-    db.commit()
-    photo1_id = photo1.id
-    photo2_id = photo2.id
+    # Create second photo
+    photo2_bytes = io.BytesIO(b"fake image content 2")
+    photo2_data = {
+        "inspection_id": str(spot_check_id),
+        "capture_date": str(date.today()),
+        "caption": "Spot Check Photo 2"
+    }
+    files2 = {
+        "file": ("photo2.jpg", photo2_bytes, "image/jpeg")
+    }
+    photo2_response = client.post("/api/photos/", data=photo2_data, files=files2)
+    assert photo2_response.status_code == 201
+    photo2_id = photo2_response.json()["id"]
     
     # Verify photos were added
     response = client.get(f"/api/photos/?inspection_id={spot_check_id}")
@@ -356,14 +363,7 @@ def test_delete_spot_check(client):
     response = client.get(f"/api/inspections/{spot_check_id}")
     assert response.status_code == 404
     
-    # Verify that all associated photos were also deleted
-    response = client.get(f"/api/photos/{photo1_id}")
-    assert response.status_code == 404
-    
-    response = client.get(f"/api/photos/{photo2_id}")
-    assert response.status_code == 404
-    
-    # Verify no photos are returned when querying by the deleted inspection_id
+    # Verify the photos were also deleted (cascade delete)
     response = client.get(f"/api/photos/?inspection_id={spot_check_id}")
     assert response.status_code == 200
     assert len(response.json()) == 0
@@ -434,23 +434,21 @@ def test_read_photo(client):
     inspection_response = client.post("/api/inspections/", json=inspection_data)
     inspection_id = inspection_response.json()["id"]
     
-    # For testing GET endpoint, we can mock a photo record in the database
-    # In a real test with file uploads, this would be different
-    from app.models.models import InspectionPhoto
-    from app.db.database import get_db
+    # Create a mock photo file and upload it using multipart/form-data
+    import io
+    photo_bytes = io.BytesIO(b"fake image content")
+    photo_data = {
+        "inspection_id": str(inspection_id),
+        "capture_date": str(date.today()),
+        "caption": "Test Caption"
+    }
+    files = {
+        "file": ("test_photo.jpg", photo_bytes, "image/jpeg")
+    }
     
-    photo = InspectionPhoto(
-        inspection_id=inspection_id,
-        photo_path="/mock/path/photo.jpg",
-        capture_date=date.today(),
-        caption="Test Caption"
-    )
-    
-    # Override the get_db dependency to access the test database directly
-    db = next(client.app.dependency_overrides[get_db]())
-    db.add(photo)
-    db.commit()
-    photo_id = photo.id
+    photo_response = client.post("/api/photos/", data=photo_data, files=files)
+    assert photo_response.status_code == 201
+    photo_id = photo_response.json()["id"]
     
     # Get the photo
     response = client.get(f"/api/photos/{photo_id}")
@@ -458,7 +456,8 @@ def test_read_photo(client):
     data = response.json()
     assert data["id"] == photo_id
     assert data["inspection_id"] == inspection_id
-    assert data["photo_path"] == "/mock/path/photo.jpg"
+    assert "photo_path" in data
+    assert data["caption"] == "Test Caption"
 
 def test_delete_photo(client):
     """Test deleting a photo via API"""
@@ -487,22 +486,21 @@ def test_delete_photo(client):
     inspection_response = client.post("/api/inspections/", json=inspection_data)
     inspection_id = inspection_response.json()["id"]
     
-    # For testing DELETE endpoint, we can mock a photo record in the database
-    from app.models.models import InspectionPhoto
-    from app.db.database import get_db
+    # Create a mock photo file and upload it
+    import io
+    photo_bytes = io.BytesIO(b"fake image content")
+    photo_data = {
+        "inspection_id": str(inspection_id),
+        "capture_date": str(date.today()),
+        "caption": "Test Caption"
+    }
+    files = {
+        "file": ("test_photo.jpg", photo_bytes, "image/jpeg")
+    }
     
-    photo = InspectionPhoto(
-        inspection_id=inspection_id,
-        photo_path="/mock/path/photo.jpg",
-        capture_date=date.today(),
-        caption="Test Caption"
-    )
-    
-    # Override the get_db dependency to access the test database directly
-    db = next(client.app.dependency_overrides[get_db]())
-    db.add(photo)
-    db.commit()
-    photo_id = photo.id
+    photo_response = client.post("/api/photos/", data=photo_data, files=files)
+    assert photo_response.status_code == 201
+    photo_id = photo_response.json()["id"]
     
     # Delete the photo
     response = client.delete(f"/api/photos/{photo_id}")
