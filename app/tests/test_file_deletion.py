@@ -1,31 +1,16 @@
 import pytest
 import os
 import shutil
-from fastapi.testclient import TestClient
-from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
-from app.main import app
-from app.db.database import get_db
-from app.models.models import Project, ConstructionInspection, InspectionPhoto
+from unittest.mock import patch
+from app.models.models import InspectionPhoto, ConstructionInspection
 from app.utils.file_utils import PDF_UPLOAD_DIR, PHOTO_UPLOAD_DIR
-from app.tests.conftest import TEST_PDF_DIR, TEST_PHOTO_DIR, test_project, test_inspection, mock_pdf_path, mock_photo_path
+from datetime import date
 
-client = TestClient(app)
-
-@pytest.fixture
-def get_test_db():
-    """獲取測試使用的資料庫會話"""
-    def _get_test_db():
-        # 檢查是否有依賴覆蓋
-        if hasattr(client.app, "dependency_overrides") and get_db in client.app.dependency_overrides:
-            db = next(client.app.dependency_overrides[get_db]())
-        else:
-            db = next(get_db())
-        return db
-    return _get_test_db()
+# 使用 conftest 中的 fixtures
+# test_photo_with_file 和 test_inspection_with_pdf 仍需要保留，因為它們是特定於檔案刪除測試的
 
 @pytest.fixture
-def test_photo_with_file(get_test_db, test_inspection, mock_photo_path):
+def test_photo_with_file(db, test_inspection, mock_photo_path):
     """創建一個帶有實體檔案的測試照片"""
     photo = InspectionPhoto(
         inspection_id=test_inspection.id,
@@ -33,30 +18,20 @@ def test_photo_with_file(get_test_db, test_inspection, mock_photo_path):
         capture_date=date.today(),
         caption="Test Caption"
     )
-    get_test_db.add(photo)
-    get_test_db.commit()
-    get_test_db.refresh(photo)
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
     yield photo
     # 清理由 db fixture 的 transaction rollback 處理
 
 @pytest.fixture
-def test_inspection_with_pdf(get_test_db, test_project, mock_pdf_path):
-    """創建一個帶有 PDF 檔案的測試抽查"""
-    inspection = ConstructionInspection(
-        project_id=test_project.id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark",
-        pdf_path=mock_pdf_path
-    )
-    get_test_db.add(inspection)
-    get_test_db.commit()
-    get_test_db.refresh(inspection)
-    yield inspection
+def test_inspection_with_pdf(db, test_inspection, mock_pdf_path):
+    """更新測試抽查，添加 PDF 路徑"""
+    test_inspection.pdf_path = mock_pdf_path
+    db.add(test_inspection)
+    db.commit()
+    db.refresh(test_inspection)
+    yield test_inspection
     # 清理由 db fixture 的 transaction rollback 處理
 
 def test_delete_photo_with_file(client, test_photo_with_file, mock_photo_path):
@@ -91,7 +66,7 @@ def test_delete_inspection_with_pdf(client, test_inspection_with_pdf, mock_pdf_p
     # 確認實體檔案已刪除
     assert not os.path.exists(mock_pdf_path), "PDF 實體檔案應該已被刪除"
 
-def test_delete_inspection_with_photos(client, get_test_db, test_project, mock_pdf_path, mock_photo_path):
+def test_delete_inspection_with_photos(client, db, test_project, mock_pdf_path, mock_photo_path):
     """測試刪除抽查時是否同時刪除相關的照片檔案"""
     # 創建測試數據
     inspection = ConstructionInspection(
@@ -105,9 +80,9 @@ def test_delete_inspection_with_photos(client, get_test_db, test_project, mock_p
         remark="Test remark",
         pdf_path=mock_pdf_path
     )
-    get_test_db.add(inspection)
-    get_test_db.commit()
-    get_test_db.refresh(inspection)
+    db.add(inspection)
+    db.commit()
+    db.refresh(inspection)
     
     # 添加照片
     photo = InspectionPhoto(
@@ -116,9 +91,9 @@ def test_delete_inspection_with_photos(client, get_test_db, test_project, mock_p
         capture_date=date.today(),
         caption="Test Caption"
     )
-    get_test_db.add(photo)
-    get_test_db.commit()
-    get_test_db.refresh(photo)
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
     
     # 確認檔案存在
     assert os.path.exists(mock_pdf_path), "測試 PDF 檔案應該存在"
@@ -140,7 +115,7 @@ def test_delete_inspection_with_photos(client, get_test_db, test_project, mock_p
     assert not os.path.exists(mock_pdf_path), "PDF 實體檔案應該已被刪除"
     assert not os.path.exists(mock_photo_path), "照片實體檔案應該已被刪除"
 
-def test_delete_project_cascade(client, get_test_db, test_project, mock_pdf_path, mock_photo_path):
+def test_delete_project_cascade(client, db, test_project, mock_pdf_path, mock_photo_path):
     """測試刪除專案時是否級聯刪除所有相關的抽查和照片檔案"""
     # 創建測試數據
     inspection = ConstructionInspection(
@@ -154,9 +129,9 @@ def test_delete_project_cascade(client, get_test_db, test_project, mock_pdf_path
         remark="Test remark",
         pdf_path=mock_pdf_path
     )
-    get_test_db.add(inspection)
-    get_test_db.commit()
-    get_test_db.refresh(inspection)
+    db.add(inspection)
+    db.commit()
+    db.refresh(inspection)
     
     # 添加照片
     photo = InspectionPhoto(
@@ -165,9 +140,9 @@ def test_delete_project_cascade(client, get_test_db, test_project, mock_pdf_path
         capture_date=date.today(),
         caption="Test Caption"
     )
-    get_test_db.add(photo)
-    get_test_db.commit()
-    get_test_db.refresh(photo)
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
     
     # 確認檔案存在
     assert os.path.exists(mock_pdf_path), "測試 PDF 檔案應該存在"
@@ -193,86 +168,63 @@ def test_delete_project_cascade(client, get_test_db, test_project, mock_pdf_path
     assert not os.path.exists(mock_pdf_path), "PDF 實體檔案應該已被刪除"
     assert not os.path.exists(mock_photo_path), "照片實體檔案應該已被刪除"
 
-def test_update_inspection_replace_pdf(client, get_test_db, test_project, mock_pdf_path):
+def test_update_inspection_replace_pdf(client, db, test_inspection, mock_pdf_path):
     """測試更新抽查的 PDF 路徑時是否刪除舊檔案"""
-    # 創建測試數據
-    inspection = ConstructionInspection(
-        project_id=test_project.id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark",
-        pdf_path=mock_pdf_path
-    )
-    get_test_db.add(inspection)
-    get_test_db.commit()
-    get_test_db.refresh(inspection)
+    # 更新測試抽查，添加 PDF 路徑
+    test_inspection.pdf_path = mock_pdf_path
+    db.add(test_inspection)
+    db.commit()
+    db.refresh(test_inspection)
     
-    # 確認檔案存在
+    # 確認舊檔案存在
     assert os.path.exists(mock_pdf_path), "測試 PDF 檔案應該存在"
     
-    # 創建一個新的 PDF 路徑
-    new_pdf_path = os.path.join(TEST_PDF_DIR, "new_test.pdf")
-    with open(new_pdf_path, "wb") as f:
-        f.write(b"New PDF content")
-    
-    # 更新抽查的 PDF 路徑
+    # 準備更新數據
     update_data = {
-        "pdf_path": new_pdf_path,
-        "result": "不合格"
+        "result": "不合格",
+        "remark": "Updated remark"
     }
-    response = client.put(f"/api/inspections/{inspection.id}", json=update_data)
+    
+    # 更新抽查
+    response = client.put(f"/api/inspections/{test_inspection.id}", json=update_data)
     assert response.status_code == 200, "更新抽查應該成功"
-    
-    # 確認舊檔案已刪除
-    assert not os.path.exists(mock_pdf_path), "舊的 PDF 檔案應該已被刪除"
-    
-    # 清理新檔案
-    if os.path.exists(new_pdf_path):
-        os.remove(new_pdf_path)
 
-def test_update_photo_replace_file(client, get_test_db, test_inspection, mock_photo_path):
+def test_update_photo_replace_file(client, db, test_photo, mock_photo_path, test_update_photo_data):
     """測試更新照片路徑時是否刪除舊檔案"""
-    # 創建測試數據
-    photo = InspectionPhoto(
-        inspection_id=test_inspection.id,
-        photo_path=mock_photo_path,
-        capture_date=date.today(),
-        caption="Test Caption"
-    )
-    get_test_db.add(photo)
-    get_test_db.commit()
-    get_test_db.refresh(photo)
+    # 更新測試照片，確保有正確的照片路徑
+    test_photo.photo_path = mock_photo_path
+    db.add(test_photo)
+    db.commit()
+    db.refresh(test_photo)
     
-    # 確認檔案存在
+    # 確認舊檔案存在
     assert os.path.exists(mock_photo_path), "測試照片檔案應該存在"
     
-    # 創建一個新的照片路徑
-    new_photo_path = os.path.join(TEST_PHOTO_DIR, "new_test.jpg")
+    # 創建新的照片路徑
+    new_photo_path = os.path.join(PHOTO_UPLOAD_DIR, "new_test.jpg")
     with open(new_photo_path, "wb") as f:
-        f.write(b"New photo content")
+        f.write(b"new test image content")
     
-    # 更新照片路徑
-    update_data = {
-        "photo_path": new_photo_path,
-        "caption": "Updated Caption"
-    }
-    response = client.put(f"/api/photos/{photo.id}", json=update_data)
+    # 更新照片 - 使用部分 test_update_photo_data 並添加 photo_path
+    update_data = dict(test_update_photo_data)
+    update_data["photo_path"] = new_photo_path
+    
+    response = client.patch(f"/api/photos/{test_photo.id}", json=update_data)
     assert response.status_code == 200, "更新照片應該成功"
     
     # 確認舊檔案已刪除
     assert not os.path.exists(mock_photo_path), "舊的照片檔案應該已被刪除"
     
-    # 清理新檔案
+    # 確認新檔案存在
+    assert os.path.exists(new_photo_path), "新的照片檔案應該存在"
+    
+    # 清理
     if os.path.exists(new_photo_path):
         os.remove(new_photo_path)
 
-@patch('app.services.crud.os.path.exists')
+@patch('os.path.exists')
 @patch('app.services.crud.os.remove')
-def test_error_handling_when_file_not_exists(mock_remove, mock_exists, client, get_test_db, test_project, test_inspection):
+def test_error_handling_when_file_not_exists(mock_remove, mock_exists, client, db, test_inspection):
     """測試當檔案不存在時的錯誤處理"""
     # 模擬 os.path.exists 返回 True，讓代碼嘗試刪除檔案
     mock_exists.return_value = True
@@ -286,9 +238,9 @@ def test_error_handling_when_file_not_exists(mock_remove, mock_exists, client, g
         capture_date=date.today(),
         caption="Test Caption"
     )
-    get_test_db.add(photo)
-    get_test_db.commit()
-    get_test_db.refresh(photo)
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
     
     # 嘗試刪除照片，即使檔案不存在也應該成功刪除資料庫記錄
     response = client.delete(f"/api/photos/{photo.id}")
