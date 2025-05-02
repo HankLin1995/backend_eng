@@ -21,7 +21,7 @@ create_tables()
 app = FastAPI(
     title="Construction Inspection API",
     description="API for managing construction inspections and photos",
-    version="1.0.0"
+    version="1.1.0"
 )
 
 # Configure CORS
@@ -45,8 +45,3 @@ app.include_router(photos.router, prefix="/api", tags=["photos"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Construction Inspection API"}
-# Note: All necessary directories are now created before database initialization
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
