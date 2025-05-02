@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from app.models.models import Project, ConstructionInspection, InspectionPhoto
 from app.schemas import schemas
 
-os.makedirs("app/data", exist_ok=True)  # <--- 加在這裡
+os.makedirs("app/data", exist_ok=True)  
 
 # 使用記憶體資料庫來加速測試
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -227,3 +227,85 @@ def create_inspection_via_api(client, create_project_via_api):
     response = client.post("/api/inspections/", json=inspection_data)
     assert response.status_code == 201
     return response.json()["id"]
+
+@pytest.fixture
+def test_spot_check_data(test_project_id):
+    """返回用於創建測試隨機抽查的資料"""
+    return {
+        "project_id": test_project_id,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Spot Check Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "隨機抽查",
+        "result": "合格",
+        "remark": "Spot check remark"
+    }
+
+@pytest.fixture
+def create_spot_check_via_api(client, create_project_via_api):
+    """通過 API 創建隨機抽查並返回抽查 ID"""
+    spot_check_data = {
+        "project_id": create_project_via_api,
+        "subproject_name": "Test Subproject",
+        "inspection_form_name": "Spot Check Form",
+        "inspection_date": str(date.today()),
+        "location": "Test Location",
+        "timing": "隨機抽查",
+        "result": "合格",
+        "remark": "Spot check remark"
+    }
+    response = client.post("/api/inspections/", json=spot_check_data)
+    assert response.status_code == 201
+    return response.json()["id"]
+
+@pytest.fixture
+def mock_photo_bytes():
+    """創建一個測試用的照片字節數據"""
+    import io
+    return io.BytesIO(b"fake image content")
+
+@pytest.fixture
+def photo_form_data(test_inspection_id):
+    """返回用於創建測試照片的表單數據"""
+    return {
+        "inspection_id": str(test_inspection_id),
+        "capture_date": str(date.today()),
+        "caption": "Test Caption"
+    }
+
+@pytest.fixture
+def create_photo_via_api(client, create_inspection_via_api, mock_photo_bytes):
+    """通過 API 創建照片並返回照片 ID"""
+    photo_data = {
+        "inspection_id": str(create_inspection_via_api),
+        "capture_date": str(date.today()),
+        "caption": "Test Caption"
+    }
+    files = {
+        "file": ("test_photo.jpg", mock_photo_bytes, "image/jpeg")
+    }
+    response = client.post("/api/photos/", data=photo_data, files=files)
+    assert response.status_code == 201
+    return response.json()["id"]
+
+@pytest.fixture
+def test_update_inspection_data():
+    """返回用於更新測試抽查的資料"""
+    return {
+        "subproject_name": "Updated Subproject",
+        "inspection_form_name": "Updated Form",
+        "inspection_date": str(date.today() + timedelta(days=1)),
+        "location": "Updated Location",
+        "timing": "施工中",
+        "result": "不合格",
+        "remark": "Updated remark"
+    }
+
+@pytest.fixture
+def test_update_photo_data():
+    """返回用於更新測試照片的資料"""
+    return {
+        "capture_date": str(date.today() + timedelta(days=1)),
+        "caption": "Updated Caption"
+    }

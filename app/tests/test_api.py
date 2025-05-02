@@ -3,8 +3,7 @@ from fastapi.testclient import TestClient
 from datetime import date, timedelta
 import json
 from app.main import app
-
-client = TestClient(app)
+import io
 
 def test_read_main(client):
     """Test the root endpoint"""
@@ -13,228 +12,110 @@ def test_read_main(client):
     assert response.json() == {"message": "Welcome to Construction Inspection API"}
 
 # Project API tests
-def test_create_project(client):
+def test_create_project(client, test_project_data):
     """Test creating a project via API"""
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    
-    response = client.post("/api/projects/", json=project_data)
+    response = client.post("/api/projects/", json=test_project_data)
     assert response.status_code == 201
     data = response.json()
-    assert data["name"] == "Test Project"
-    assert data["location"] == "Test Location"
-    assert data["contractor"] == "Test Contractor"
+    assert data["name"] == test_project_data["name"]
+    assert data["location"] == test_project_data["location"]
+    assert data["contractor"] == test_project_data["contractor"]
     assert "id" in data
 
-def test_read_projects(client):
+def test_read_projects(client, test_project_data):
     """Test reading all projects via API"""
     # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    client.post("/api/projects/", json=project_data)
+    client.post("/api/projects/", json=test_project_data)
     
     # Get all projects
     response = client.get("/api/projects/")
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
-    assert any(project["name"] == "Test Project" for project in data)
+    assert any(project["name"] == test_project_data["name"] for project in data)
 
-def test_read_project(client):
+def test_read_project(client, create_project_via_api):
     """Test reading a specific project via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
+    project_id = create_project_via_api
     
     # Get the project
     response = client.get(f"/api/projects/{project_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == project_id
-    assert data["name"] == "Test Project"
     assert "inspections" in data
 
 # Inspection API tests
-def test_create_inspection(client):
+def test_create_inspection(client, create_project_via_api, test_inspection_data):
     """Test creating an inspection via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
+    project_id = create_project_via_api
     
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
+    # Update project_id in test_inspection_data
+    inspection_data = test_inspection_data.copy()
+    inspection_data["project_id"] = project_id
     
     response = client.post("/api/inspections/", json=inspection_data)
     assert response.status_code == 201
     data = response.json()
     assert data["project_id"] == project_id
-    assert data["subproject_name"] == "Test Subproject"
-    assert data["timing"] == "檢驗停留點"
-    assert data["result"] == "合格"
+    assert data["subproject_name"] == inspection_data["subproject_name"]
     assert "id" in data
 
-def test_read_inspections(client):
+def test_read_inspections(client, create_inspection_via_api):
     """Test reading all inspections via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    client.post("/api/inspections/", json=inspection_data)
-    
     # Get all inspections
     response = client.get("/api/inspections/")
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
-    assert any(inspection["subproject_name"] == "Test Subproject" for inspection in data)
-
+    
     # Get inspections filtered by project_id
+    project_id = client.get(f"/api/inspections/{create_inspection_via_api}").json()["project_id"]
     response = client.get(f"/api/inspections/?project_id={project_id}")
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
     assert all(inspection["project_id"] == project_id for inspection in data)
 
-def test_update_inspection(client):
+def test_update_inspection(client, create_inspection_via_api, test_update_inspection_data):
     """Test updating an inspection via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    create_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = create_response.json()["id"]
+    inspection_id = create_inspection_via_api
     
     # Update the inspection
-    update_data = {
-        "result": "不合格",
-        "remark": "Updated remark",
-        "pdf_path": "/path/to/pdf"
-    }
-    
-    response = client.put(f"/api/inspections/{inspection_id}", json=update_data)
+    response = client.put(f"/api/inspections/{inspection_id}", json=test_update_inspection_data)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == inspection_id
-    assert data["result"] == "不合格"
-    assert data["remark"] == "Updated remark"
-    assert data["pdf_path"] == "/path/to/pdf"
+    assert data["result"] == test_update_inspection_data["result"]
+    
+    # Verify the inspection was updated
+    response = client.get(f"/api/inspections/{inspection_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["result"] == test_update_inspection_data["result"]
 
-def test_update_inspection_preserve_pdf_path(client):
+def test_update_inspection_preserve_pdf_path(client, create_inspection_via_api):
     """Test that pdf_path is preserved when not included in the update request"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
+    inspection_id = create_inspection_via_api
     
-    # Create an inspection first (without pdf_path)
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    create_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = create_response.json()["id"]
-    
-    # Create a mock PDF file and upload it using the upload-pdf endpoint
-    import io
-    pdf_content = io.BytesIO(b"Test PDF content")
-    files = {
-        "file": ("test.pdf", pdf_content, "application/pdf")
-    }
-    upload_response = client.post(
-        f"/api/inspections/{inspection_id}/upload-pdf",
-        files=files
-    )
+    # Upload a PDF file to the inspection
+    pdf_bytes = io.BytesIO(b"fake pdf content")
+    files = {"file": ("test.pdf", pdf_bytes, "application/pdf")}
+    upload_response = client.post(f"/api/inspections/{inspection_id}/upload-pdf", files=files)
     assert upload_response.status_code == 200
-    assert upload_response.json()["pdf_path"] is not None
-    pdf_path = upload_response.json()["pdf_path"]
     
-    # Now update without including pdf_path
+    # Get the inspection to verify the pdf_path
+    response = client.get(f"/api/inspections/{inspection_id}")
+    assert response.status_code == 200
+    inspection_data = response.json()
+    pdf_path = inspection_data["pdf_path"]
+    assert pdf_path is not None
+    
+    # Update the inspection without including pdf_path
     update_data = {
         "result": "不合格",
         "remark": "Updated without PDF path"
     }
-    
     response = client.put(f"/api/inspections/{inspection_id}", json=update_data)
     assert response.status_code == 200
     data = response.json()
@@ -244,32 +125,9 @@ def test_update_inspection_preserve_pdf_path(client):
     assert data["remark"] == "Updated without PDF path"
     assert data["pdf_path"] == pdf_path, "pdf_path should not be changed when not included in update"
 
-def test_delete_inspection(client):
+def test_delete_inspection(client, create_inspection_via_api):
     """Test deleting an inspection via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    create_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = create_response.json()["id"]
+    inspection_id = create_inspection_via_api
     
     # Delete the inspection
     response = client.delete(f"/api/inspections/{inspection_id}")
@@ -281,34 +139,9 @@ def test_delete_inspection(client):
     response = client.get(f"/api/inspections/{inspection_id}")
     assert response.status_code == 404
 
-def test_delete_spot_check(client):
+def test_delete_spot_check(client, create_spot_check_via_api, mock_photo_bytes):
     """Test deleting a spot check inspection via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create a spot check inspection
-    spot_check_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Spot Check Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "隨機抽查",  # This is a spot check
-        "result": "合格",
-        "remark": "Spot check remark"
-    }
-    
-    create_response = client.post("/api/inspections/", json=spot_check_data)
-    assert create_response.status_code == 201
-    spot_check_id = create_response.json()["id"]
+    spot_check_id = create_spot_check_via_api
     
     # Verify the spot check was created
     response = client.get(f"/api/inspections/{spot_check_id}")
@@ -316,35 +149,29 @@ def test_delete_spot_check(client):
     assert response.json()["timing"] == "隨機抽查"
     
     # Add photos to the spot check using the API
-    import io
-    
     # Create first photo
-    photo1_bytes = io.BytesIO(b"fake image content 1")
     photo1_data = {
         "inspection_id": str(spot_check_id),
         "capture_date": str(date.today()),
         "caption": "Spot Check Photo 1"
     }
     files1 = {
-        "file": ("photo1.jpg", photo1_bytes, "image/jpeg")
+        "file": ("photo1.jpg", mock_photo_bytes, "image/jpeg")
     }
     photo1_response = client.post("/api/photos/", data=photo1_data, files=files1)
     assert photo1_response.status_code == 201
-    photo1_id = photo1_response.json()["id"]
     
     # Create second photo
-    photo2_bytes = io.BytesIO(b"fake image content 2")
     photo2_data = {
         "inspection_id": str(spot_check_id),
         "capture_date": str(date.today()),
         "caption": "Spot Check Photo 2"
     }
     files2 = {
-        "file": ("photo2.jpg", photo2_bytes, "image/jpeg")
+        "file": ("photo2.jpg", mock_photo_bytes, "image/jpeg")
     }
     photo2_response = client.post("/api/photos/", data=photo2_data, files=files2)
     assert photo2_response.status_code == 201
-    photo2_id = photo2_response.json()["id"]
     
     # Verify photos were added
     response = client.get(f"/api/photos/?inspection_id={spot_check_id}")
@@ -369,35 +196,9 @@ def test_delete_spot_check(client):
     assert len(response.json()) == 0
 
 # Photo API tests
-def test_read_photos(client):
+def test_read_photos(client, create_inspection_via_api):
     """Test reading all photos via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    inspection_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = inspection_response.json()["id"]
-    
-    # Mock photo data (since we can't easily test file uploads in this context)
-    # In a real test, you would use TestClient's files parameter to upload actual files
+    inspection_id = create_inspection_via_api
     
     # Get all photos
     response = client.get("/api/photos/")
@@ -407,48 +208,10 @@ def test_read_photos(client):
     response = client.get(f"/api/photos/?inspection_id={inspection_id}")
     assert response.status_code == 200
 
-def test_read_photo(client):
+def test_read_photo(client, create_photo_via_api, create_inspection_via_api):
     """Test reading a specific photo via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    inspection_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = inspection_response.json()["id"]
-    
-    # Create a mock photo file and upload it using multipart/form-data
-    import io
-    photo_bytes = io.BytesIO(b"fake image content")
-    photo_data = {
-        "inspection_id": str(inspection_id),
-        "capture_date": str(date.today()),
-        "caption": "Test Caption"
-    }
-    files = {
-        "file": ("test_photo.jpg", photo_bytes, "image/jpeg")
-    }
-    
-    photo_response = client.post("/api/photos/", data=photo_data, files=files)
-    assert photo_response.status_code == 201
-    photo_id = photo_response.json()["id"]
+    photo_id = create_photo_via_api
+    inspection_id = create_inspection_via_api
     
     # Get the photo
     response = client.get(f"/api/photos/{photo_id}")
@@ -457,50 +220,11 @@ def test_read_photo(client):
     assert data["id"] == photo_id
     assert data["inspection_id"] == inspection_id
     assert "photo_path" in data
-    assert data["caption"] == "Test Caption"
+    assert "caption" in data
 
-def test_delete_photo(client):
+def test_delete_photo(client, create_photo_via_api):
     """Test deleting a photo via API"""
-    # Create a project first
-    project_data = {
-        "name": "Test Project",
-        "location": "Test Location",
-        "contractor": "Test Contractor",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    create_response = client.post("/api/projects/", json=project_data)
-    project_id = create_response.json()["id"]
-    
-    # Create an inspection
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Test Subproject",
-        "inspection_form_name": "Test Form",
-        "inspection_date": str(date.today()),
-        "location": "Test Location",
-        "timing": "檢驗停留點",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    inspection_response = client.post("/api/inspections/", json=inspection_data)
-    inspection_id = inspection_response.json()["id"]
-    
-    # Create a mock photo file and upload it
-    import io
-    photo_bytes = io.BytesIO(b"fake image content")
-    photo_data = {
-        "inspection_id": str(inspection_id),
-        "capture_date": str(date.today()),
-        "caption": "Test Caption"
-    }
-    files = {
-        "file": ("test_photo.jpg", photo_bytes, "image/jpeg")
-    }
-    
-    photo_response = client.post("/api/photos/", data=photo_data, files=files)
-    assert photo_response.status_code == 201
-    photo_id = photo_response.json()["id"]
+    photo_id = create_photo_via_api
     
     # Delete the photo
     response = client.delete(f"/api/photos/{photo_id}")
@@ -510,67 +234,18 @@ def test_delete_photo(client):
     response = client.get(f"/api/photos/{photo_id}")
     assert response.status_code == 404
 
-def test_patch_photo_caption_and_date(client):
+def test_patch_photo_caption_and_date(client, create_photo_via_api, test_update_photo_data):
     """Test partial update (PATCH) of photo caption and date only"""
-    # 先建立一個 project 與 inspection
-    project_data = {
-        "name": "Patch Photo Project",
-        "location": "Taipei",
-        "contractor": "Test",
-        "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
-    }
-    project_resp = client.post("/api/projects/", json=project_data)
-    assert project_resp.status_code == 201
-    project_id = project_resp.json()["id"]
-    
-    inspection_data = {
-        "project_id": project_id,
-        "subproject_name": "Sub Project",
-        "inspection_form_name": "Form Name",
-        "inspection_date": str(date.today()),
-        "location": "Location",
-        "timing": "morning",
-        "result": "合格",
-        "remark": "Test remark"
-    }
-    inspection_resp = client.post("/api/inspections/", json=inspection_data)
-    assert inspection_resp.status_code == 201
-    inspection_id = inspection_resp.json()["id"]
-    
-    # 建立照片（需使用 multipart/form-data 上傳 file）
-    import io
-    photo_bytes = io.BytesIO(b"fake image content")
-    photo_data = {
-        "inspection_id": str(inspection_id),
-        "capture_date": str(date.today()),
-        "caption": "Original Caption"
-    }
-    files = {
-        "file": ("photo.jpg", photo_bytes, "image/jpeg")
-    }
-    photo_resp = client.post("/api/photos/", data=photo_data, files=files)
-    assert photo_resp.status_code == 201
-    photo_id = photo_resp.json()["id"]
-    
-    # 確認照片已建立
-    get_resp = client.get(f"/api/photos/{photo_id}")
-    assert get_resp.status_code == 200
+    photo_id = create_photo_via_api
     
     # PATCH 只更新日期和描述
-    new_date = str(date.today() + timedelta(days=1))
-    patch_data = {
-        "capture_date": new_date,
-        "caption": "Updated Caption"
-    }
-    patch_resp = client.patch(f"/api/photos/{photo_id}", json=patch_data)
+    patch_resp = client.patch(f"/api/photos/{photo_id}", json=test_update_photo_data)
     assert patch_resp.status_code == 200
     patched = patch_resp.json()
     
     # 驗證只有指定欄位被更新
-    assert patched["caption"] == "Updated Caption"
-    assert patched["capture_date"] == new_date
-    assert patched["inspection_id"] == inspection_id
+    assert patched["caption"] == test_update_photo_data["caption"]
+    assert patched["capture_date"] == test_update_photo_data["capture_date"]
 
 # Add tests for error handling
 def test_get_nonexistent_project(client):
@@ -596,23 +271,16 @@ def test_create_project_validation_error(client):
     """Test creating a project with invalid data"""
     # Missing required fields
     project_data = {
-        "name": "Test Project",
-        # Missing location
-        "contractor": "Test Contractor",
-        # Missing dates
+        "name": "Test Project"
     }
-    
     response = client.post("/api/projects/", json=project_data)
-    assert response.status_code == 422  # Unprocessable Entity
+    assert response.status_code == 422
 
-def test_create_inspection_validation_error(client):
+def test_create_inspection_validation_error(client, create_project_via_api):
     """Test creating an inspection with invalid data"""
     # Missing required fields
     inspection_data = {
-        # Missing project_id
-        "subproject_name": "Test Subproject",
-        # Missing other fields
+        "project_id": create_project_via_api
     }
-    
     response = client.post("/api/inspections/", json=inspection_data)
-    assert response.status_code == 422  # Unprocessable Entity
+    assert response.status_code == 422

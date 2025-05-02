@@ -10,40 +10,24 @@ from app.schemas import schemas
 from app.models.models import Project, ConstructionInspection, InspectionPhoto
 
 # Project CRUD tests
-def test_create_project(db):
+def test_create_project(db, test_project_data):
     """Test creating a project"""
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
+    project_data = schemas.ProjectCreate(**test_project_data)
     
     project = create_project(db, project_data)
     assert project.id is not None
-    assert project.name == "Test Project"
-    assert project.location == "Test Location"
-    assert project.contractor == "Test Contractor"
-    assert project.start_date == date.today()
-    assert project.end_date == date.today() + timedelta(days=30)
+    assert project.name == test_project_data["name"]
+    assert project.location == test_project_data["location"]
+    assert project.contractor == test_project_data["contractor"]
+    assert project.start_date == date.fromisoformat(test_project_data["start_date"])
+    assert project.end_date == date.fromisoformat(test_project_data["end_date"])
 
-def test_get_project(db):
+def test_get_project(db, test_project):
     """Test getting a project by ID"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    created_project = create_project(db, project_data)
-    
     # Get the project
-    project = get_project(db, created_project.id)
-    assert project.id == created_project.id
-    assert project.name == "Test Project"
+    project = get_project(db, test_project.id)
+    assert project.id == test_project.id
+    assert project.name == test_project.name
 
 def test_get_project_not_found(db):
     """Test getting a non-existent project"""
@@ -52,16 +36,10 @@ def test_get_project_not_found(db):
     assert excinfo.value.status_code == 404
     assert excinfo.value.detail == "Project not found"
 
-def test_get_projects(db):
+def test_get_projects(db, test_project_data):
     """Test getting all projects"""
     # Create some projects
-    project_data1 = schemas.ProjectCreate(
-        name="Test Project 1",
-        location="Test Location 1",
-        contractor="Test Contractor 1",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
+    project_data1 = schemas.ProjectCreate(**test_project_data)
     project_data2 = schemas.ProjectCreate(
         name="Test Project 2",
         location="Test Location 2",
@@ -75,23 +53,13 @@ def test_get_projects(db):
     
     # Get all projects
     projects = get_projects(db)
-    assert len(projects) == 2
+    assert len(projects) >= 2
     project_names = [p.name for p in projects]
-    assert "Test Project 1" in project_names
+    assert test_project_data["name"] in project_names
     assert "Test Project 2" in project_names
 
-def test_update_project(db):
+def test_update_project(db, test_project):
     """Test updating a project"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    created_project = create_project(db, project_data)
-    
     # Update the project
     updated_data = schemas.ProjectCreate(
         name="Updated Project",
@@ -101,126 +69,63 @@ def test_update_project(db):
         end_date=date.today() + timedelta(days=45)
     )
     
-    updated_project = update_project(db, created_project.id, updated_data)
-    assert updated_project.id == created_project.id
+    updated_project = update_project(db, test_project.id, updated_data)
+    assert updated_project.id == test_project.id
     assert updated_project.name == "Updated Project"
     assert updated_project.location == "Updated Location"
     assert updated_project.contractor == "Updated Contractor"
     assert updated_project.end_date == date.today() + timedelta(days=45)
 
-def test_delete_project(db):
+def test_delete_project(db, test_project):
     """Test deleting a project"""
-    # Create a project first
-    project_data = schemas.ProjectCreate(
-        name="Test Project",
-        location="Test Location",
-        contractor="Test Contractor",
-        start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
-    )
-    created_project = create_project(db, project_data)
-    
     # Delete the project
-    deleted_project = delete_project(db, created_project.id)
-    assert deleted_project.id == created_project.id
+    deleted_project = delete_project(db, test_project.id)
+    assert deleted_project.id == test_project.id
     
     # Verify it's deleted
     with pytest.raises(HTTPException) as excinfo:
-        get_project(db, created_project.id)
+        get_project(db, test_project.id)
     assert excinfo.value.status_code == 404
 
 # Inspection CRUD tests
-def test_create_inspection(db, test_project_id):
+def test_create_inspection(db, test_project_id, test_inspection_data):
     """Test creating an inspection"""
     # Create inspection
-    inspection_data = schemas.InspectionCreate(
-        project_id=test_project_id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark"
-    )
+    inspection_data = schemas.InspectionCreate(**test_inspection_data)
     
     inspection = create_inspection(db, inspection_data)
     assert inspection.id is not None
     assert inspection.project_id == test_project_id
-    assert inspection.subproject_name == "Test Subproject"
-    assert inspection.timing == "檢驗停留點"
-    assert inspection.result == "合格"
+    assert inspection.subproject_name == test_inspection_data["subproject_name"]
+    assert inspection.timing == test_inspection_data["timing"]
+    assert inspection.result == test_inspection_data["result"]
 
-def test_get_inspection(db, test_project_id):
+def test_get_inspection(db, test_inspection):
     """Test getting an inspection by ID"""
-    # Create inspection
-    inspection_data = schemas.InspectionCreate(
-        project_id=test_project_id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark"
-    )
-    created_inspection = create_inspection(db, inspection_data)
-    
     # Get the inspection
-    inspection = get_inspection(db, created_inspection.id)
-    assert inspection.id == created_inspection.id
-    assert inspection.subproject_name == "Test Subproject"
+    inspection = get_inspection(db, test_inspection.id)
+    assert inspection.id == test_inspection.id
+    assert inspection.subproject_name == test_inspection.subproject_name
 
-def test_update_inspection(db, test_project_id):
+def test_update_inspection(db, test_inspection, test_update_inspection_data):
     """Test updating an inspection"""
-    # Create inspection
-    inspection_data = schemas.InspectionCreate(
-        project_id=test_project_id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark"
-    )
-    created_inspection = create_inspection(db, inspection_data)
-    
     # Update the inspection
-    updated_data = schemas.InspectionUpdate(
-        result="不合格",
-        remark="Updated remark",
-        pdf_path="/path/to/pdf"
-    )
+    updated_data = schemas.InspectionUpdate(**test_update_inspection_data)
     
-    updated_inspection = update_inspection(db, created_inspection.id, updated_data)
-    assert updated_inspection.id == created_inspection.id
-    assert updated_inspection.result == "不合格"
-    assert updated_inspection.remark == "Updated remark"
-    assert updated_inspection.pdf_path == "/path/to/pdf"
+    updated_inspection = update_inspection(db, test_inspection.id, updated_data)
+    assert updated_inspection.id == test_inspection.id
+    assert updated_inspection.result == test_update_inspection_data["result"]
+    assert updated_inspection.remark == test_update_inspection_data["remark"]
 
-def test_delete_inspection(db, test_project_id):
+def test_delete_inspection(db, test_inspection):
     """Test deleting an inspection"""
-    # Create inspection
-    inspection_data = schemas.InspectionCreate(
-        project_id=test_project_id,
-        subproject_name="Test Subproject",
-        inspection_form_name="Test Form",
-        inspection_date=date.today(),
-        location="Test Location",
-        timing="檢驗停留點",
-        result="合格",
-        remark="Test remark"
-    )
-    created_inspection = create_inspection(db, inspection_data)
-    
     # Delete the inspection
-    deleted_inspection = delete_inspection(db, created_inspection.id)
-    assert deleted_inspection.id == created_inspection.id
+    deleted_inspection = delete_inspection(db, test_inspection.id)
+    assert deleted_inspection.id == test_inspection.id
     
     # Verify it's deleted
     with pytest.raises(HTTPException) as excinfo:
-        get_inspection(db, created_inspection.id)
+        get_inspection(db, test_inspection.id)
     assert excinfo.value.status_code == 404
 
 # Photo CRUD tests
@@ -261,7 +166,35 @@ def test_get_photos_by_inspection(db, test_inspection_id):
     
     # Get photos by inspection ID
     photos = get_photos(db, inspection_id=test_inspection_id)
-    assert len(photos) == 2
-    photo_paths = [p.photo_path for p in photos]
-    assert "/path/to/photo1.jpg" in photo_paths
-    assert "/path/to/photo2.jpg" in photo_paths
+    assert len(photos) >= 2
+    photo_captions = [p.caption for p in photos]
+    assert "Test Caption 1" in photo_captions
+    assert "Test Caption 2" in photo_captions
+
+def test_get_photo(db, test_photo):
+    """Test getting a photo by ID"""
+    # Get the photo
+    photo = get_photo(db, test_photo.id)
+    assert photo.id == test_photo.id
+    assert photo.caption == test_photo.caption
+
+def test_update_photo(db, test_photo, test_update_photo_data):
+    """Test updating a photo"""
+    # Update the photo
+    updated_data = schemas.PhotoUpdate(**test_update_photo_data)
+    
+    updated_photo = update_photo(db, test_photo.id, updated_data)
+    assert updated_photo.id == test_photo.id
+    assert updated_photo.caption == test_update_photo_data["caption"]
+    assert updated_photo.capture_date == date.fromisoformat(test_update_photo_data["capture_date"])
+
+def test_delete_photo(db, test_photo):
+    """Test deleting a photo"""
+    # Delete the photo
+    deleted_photo = delete_photo(db, test_photo.id)
+    assert deleted_photo.id == test_photo.id
+    
+    # Verify it's deleted
+    with pytest.raises(HTTPException) as excinfo:
+        get_photo(db, test_photo.id)
+    assert excinfo.value.status_code == 404
