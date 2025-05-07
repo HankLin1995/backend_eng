@@ -10,6 +10,10 @@ import os
 def get_projects(db: Session, skip: int = 0, limit: int = 100):
     return db.query(Project).offset(skip).limit(limit).all()
 
+def get_projects_by_owner(db: Session, owner: str, skip: int = 0, limit: int = 100):
+    """Get projects filtered by owner"""
+    return db.query(Project).filter(Project.owner == owner).offset(skip).limit(limit).all()
+
 def get_project(db: Session, project_id: int):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:

@@ -4,7 +4,8 @@ from datetime import date, timedelta
 from app.services.crud import (
     get_projects, get_project, create_project, update_project, delete_project,
     get_inspections, get_inspection, create_inspection, update_inspection, delete_inspection,
-    get_photos, get_photo, create_photo, update_photo, delete_photo
+    get_photos, get_photo, create_photo, update_photo, delete_photo,
+    get_projects_by_owner
 )
 from app.schemas import schemas
 from app.models.models import Project, ConstructionInspection, InspectionPhoto
@@ -21,6 +22,7 @@ def test_create_project(db, test_project_data):
     assert project.contractor == test_project_data["contractor"]
     assert project.start_date == date.fromisoformat(test_project_data["start_date"])
     assert project.end_date == date.fromisoformat(test_project_data["end_date"])
+    assert project.owner == test_project_data["owner"]
 
 def test_get_project(db, test_project):
     """Test getting a project by ID"""
@@ -45,7 +47,8 @@ def test_get_projects(db, test_project_data):
         location="Test Location 2",
         contractor="Test Contractor 2",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=60)
+        end_date=date.today() + timedelta(days=60),
+        owner="test_owner_2"
     )
     
     create_project(db, project_data1)
@@ -58,6 +61,33 @@ def test_get_projects(db, test_project_data):
     assert test_project_data["name"] in project_names
     assert "Test Project 2" in project_names
 
+def test_get_projects_by_owner(db, test_project_data):
+    """Test getting projects by owner"""
+    # Create projects with different owners
+    project_data1 = schemas.ProjectCreate(**test_project_data)  # Owner: test_owner
+    
+    project_data2 = schemas.ProjectCreate(
+        name="Test Project 2",
+        location="Test Location 2",
+        contractor="Test Contractor 2",
+        start_date=date.today(),
+        end_date=date.today() + timedelta(days=60),
+        owner="different_owner"
+    )
+    
+    create_project(db, project_data1)
+    create_project(db, project_data2)
+    
+    # Get projects by owner
+    projects = get_projects_by_owner(db, owner="test_owner")
+    assert len(projects) >= 1
+    assert all(p.owner == "test_owner" for p in projects)
+    
+    # Get projects by different owner
+    projects = get_projects_by_owner(db, owner="different_owner")
+    assert len(projects) >= 1
+    assert all(p.owner == "different_owner" for p in projects)
+
 def test_update_project(db, test_project):
     """Test updating a project"""
     # Update the project
@@ -66,7 +96,8 @@ def test_update_project(db, test_project):
         location="Updated Location",
         contractor="Updated Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=45)
+        end_date=date.today() + timedelta(days=45),
+        owner="updated_owner"
     )
     
     updated_project = update_project(db, test_project.id, updated_data)
@@ -75,6 +106,7 @@ def test_update_project(db, test_project):
     assert updated_project.location == "Updated Location"
     assert updated_project.contractor == "Updated Contractor"
     assert updated_project.end_date == date.today() + timedelta(days=45)
+    assert updated_project.owner == "updated_owner"
 
 def test_delete_project(db, test_project):
     """Test deleting a project"""

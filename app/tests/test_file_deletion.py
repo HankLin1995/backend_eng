@@ -148,8 +148,8 @@ def test_delete_project_cascade(client, db, test_project, mock_pdf_path, mock_ph
     assert os.path.exists(mock_pdf_path), "測試 PDF 檔案應該存在"
     assert os.path.exists(mock_photo_path), "測試照片檔案應該存在"
     
-    # 刪除專案
-    response = client.delete(f"/api/projects/{test_project.id}")
+    # 刪除專案 (需要提供 owner 頭部)
+    response = client.delete(f"/api/projects/{test_project.id}", headers={"owner": "test_owner"})
     assert response.status_code == 200, "刪除專案應該成功"
     
     # 確認專案記錄已刪除

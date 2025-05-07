@@ -121,7 +121,8 @@ def test_project_data():
         "location": "Test Location",
         "contractor": "Test Contractor",
         "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
+        "end_date": str(date.today() + timedelta(days=30)),
+        "owner": "test_owner"
     }
 
 @pytest.fixture
@@ -146,7 +147,8 @@ def test_project(db):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     db.add(project)
     db.commit()

@@ -10,7 +10,8 @@ def test_project_model(db):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     
     # Add to database
@@ -25,6 +26,7 @@ def test_project_model(db):
     assert db_project.contractor == "Test Contractor"
     assert db_project.start_date == date.today()
     assert db_project.end_date == date.today() + timedelta(days=30)
+    assert db_project.owner == "test_owner"
 
 def test_construction_inspection_model(db):
     """Test creating a ConstructionInspection model instance"""
@@ -34,7 +36,8 @@ def test_construction_inspection_model(db):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     db.add(project)
     db.commit()
@@ -82,7 +85,8 @@ def test_inspection_photo_model(db):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     db.add(project)
     db.commit()
@@ -132,7 +136,8 @@ def test_relationships(db):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     db.add(project)
     db.commit()

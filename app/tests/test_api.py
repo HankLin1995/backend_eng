@@ -45,6 +45,111 @@ def test_read_project(client, create_project_via_api):
     assert data["id"] == project_id
     assert "inspections" in data
 
+def test_project_owner_validation(client, create_project_via_api, test_project_data):
+    """Test project owner validation in API"""
+    project_id = create_project_via_api
+    owner = test_project_data["owner"]
+    
+    # Test with correct owner header
+    response = client.get(f"/api/projects/{project_id}", headers={"owner": owner})
+    assert response.status_code == 200
+    
+    # Test with incorrect owner header
+    response = client.get(f"/api/projects/{project_id}", headers={"owner": "wrong_owner"})
+    assert response.status_code == 403
+    assert "Access denied" in response.json()["detail"]
+    
+    # Test update with correct owner header
+    update_data = {
+        "name": "Updated via API",
+        "location": "Updated Location",
+        "contractor": "Updated Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=45)),
+        "owner": "new_owner"  # Owner can be changed if the current owner approves
+    }
+    response = client.put(f"/api/projects/{project_id}", json=update_data, headers={"owner": owner})
+    assert response.status_code == 200
+    
+    # Test update with incorrect owner header
+    response = client.put(f"/api/projects/{project_id}", json=update_data, headers={"owner": "wrong_owner"})
+    assert response.status_code == 403
+    assert "Access denied" in response.json()["detail"]
+    
+    # Test delete with incorrect owner header
+    response = client.delete(f"/api/projects/{project_id}", headers={"owner": "wrong_owner"})
+    assert response.status_code == 403
+    assert "Access denied" in response.json()["detail"]
+
+def test_get_projects_by_owner(client, test_project_data):
+    """Test getting projects filtered by owner via API"""
+    # Create first project with test_owner
+    client.post("/api/projects/", json=test_project_data)
+    
+    # Create second project with different_owner
+    different_owner_project = {
+        "name": "Different Owner Project",
+        "location": "Different Location",
+        "contractor": "Different Contractor",
+        "start_date": str(date.today()),
+        "end_date": str(date.today() + timedelta(days=30)),
+        "owner": "different_owner"
+    }
+    client.post("/api/projects/", json=different_owner_project)
+    
+    # Get projects with test_owner header
+    response = client.get("/api/projects/", headers={"owner": test_project_data["owner"]})
+    assert response.status_code == 200
+    projects = response.json()
+    assert len(projects) >= 1
+    assert all(project["owner"] == test_project_data["owner"] for project in projects)
+    
+    # Get projects with different_owner header
+    response = client.get("/api/projects/", headers={"owner": "different_owner"})
+    assert response.status_code == 200
+    projects = response.json()
+    assert len(projects) >= 1
+    assert all(project["owner"] == "different_owner" for project in projects)
+
+def test_get_project_storage_info(client, create_project_via_api, test_project_data):
+    """Test getting project storage info"""
+    project_id = create_project_via_api
+    owner = test_project_data["owner"]
+    
+    # Test with correct owner header
+    response = client.get(f"/api/projects/{project_id}/storage", headers={"owner": owner})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["project_id"] == project_id
+    assert "total_size_bytes" in data
+    assert "file_count" in data
+    
+    # Test with incorrect owner header
+    response = client.get(f"/api/projects/{project_id}/storage", headers={"owner": "wrong_owner"})
+    assert response.status_code == 403
+    assert "Access denied" in response.json()["detail"]
+    
+    # Test without owner header (should still work as owner is optional for this endpoint)
+    response = client.get(f"/api/projects/{project_id}/storage")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["project_id"] == project_id
+
+def test_delete_project(client, create_project_via_api, test_project_data):
+    """Test deleting a project via API"""
+    project_id = create_project_via_api
+    owner = test_project_data["owner"]
+    
+    # Delete the project with correct owner header
+    response = client.delete(f"/api/projects/{project_id}", headers={"owner": owner})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == project_id
+    
+    # Verify the project was deleted
+    response = client.get(f"/api/projects/{project_id}")
+    assert response.status_code == 404
+
 # Inspection API tests
 def test_create_inspection(client, create_project_via_api, test_inspection_data):
     """Test creating an inspection via API"""

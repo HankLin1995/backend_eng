@@ -23,7 +23,8 @@ def test_upload_inspection_pdf(client, db: Session):
         "location": "Test Location",
         "contractor": "Test Contractor",
         "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
+        "end_date": str(date.today() + timedelta(days=30)),
+        "owner": "test_owner"
     }
     create_response = client.post("/api/projects/", json=project_data)
     project_id = create_response.json()["id"]
@@ -70,7 +71,8 @@ def test_generate_inspection_pdf(client, db: Session):
         "location": "Test Location",
         "contractor": "Test Contractor",
         "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
+        "end_date": str(date.today() + timedelta(days=30)),
+        "owner": "test_owner"
     }
     create_response = client.post("/api/projects/", json=project_data)
     project_id = create_response.json()["id"]
@@ -111,7 +113,8 @@ def test_update_photo(client, db: Session):
         "location": "Test Location",
         "contractor": "Test Contractor",
         "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=30))
+        "end_date": str(date.today() + timedelta(days=30)),
+        "owner": "test_owner"
     }
     create_response = client.post("/api/projects/", json=project_data)
     project_id = create_response.json()["id"]
@@ -259,7 +262,8 @@ def test_delete_inspection(db: Session):
         location="Test Location",
         contractor="Test Contractor",
         start_date=date.today(),
-        end_date=date.today() + timedelta(days=30)
+        end_date=date.today() + timedelta(days=30),
+        owner="test_owner"
     )
     db.add(project)
     db.commit()
@@ -297,11 +301,12 @@ def test_project_api_edge_cases(client):
         "location": "Updated Location",
         "contractor": "Updated Contractor",
         "start_date": str(date.today()),
-        "end_date": str(date.today() + timedelta(days=60))
+        "end_date": str(date.today() + timedelta(days=60)),
+        "owner": "test_owner"
     }
-    response = client.put("/api/projects/999", json=update_data)
+    response = client.put("/api/projects/999", json=update_data, headers={"owner": "test_owner"})
     assert response.status_code == 404
     
     # 測試刪除不存在的專案
-    response = client.delete("/api/projects/999")
+    response = client.delete("/api/projects/999", headers={"owner": "test_owner"})
     assert response.status_code == 404
