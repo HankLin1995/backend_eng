@@ -35,8 +35,14 @@ def get_db():
     finally:
         db.close()
 
-def create_tables():
-    """Create all tables in the database"""
+#def create_tables():
+ #   """Create all tables in the database"""
     # The directory creation is now handled when the module is loaded
     # Create all tables
-    Base.metadata.create_all(bind=engine)
+   # Base.metadata.create_all(bind=engine,checkfirst=True)
+def create_tables():
+   """Create all tables in the database."""
+   try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+   except Exception as e:
+       print(f"[WARNING] Skipping table creation due to error: {e}")
