@@ -3,7 +3,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
 # Get database URL from environment variable or use default
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
+# SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "mysql+mysqlconnector://root:password@db:3306/mydatabase")
 
 # Ensure data directory exists for SQLite
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///") and not SQLALCHEMY_DATABASE_URL.startswith("sqlite:///:memory:"):
